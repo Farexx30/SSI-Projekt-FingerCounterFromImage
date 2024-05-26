@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import pandas as pd
+import random
 import os
 import re
 from sklearn.metrics import accuracy_score
@@ -12,31 +13,31 @@ from sklearn.naive_bayes import GaussianNB
 
 #Główna funkcja analizująca każde zdjęcie
 def extract_features(image):
-    hsvim = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower = np.array([0, 48, 80], dtype='uint8')
-    upper = np.array([20, 255, 255], dtype='uint8')
+    image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+    lower_hsv = np.array([0, 48, 80], dtype='uint8')
+    upper_hsv = np.array([20, 255, 255], dtype='uint8')
 
-    skinRegionHSV = cv2.inRange(hsvim, lower, upper)
+    skin_region_hsv = cv2.inRange(image_hsv, lower_hsv, upper_hsv)
 
-    blurred = cv2.blur(skinRegionHSV, (2,2))
+    blurred_image = cv2.blur(skin_region_hsv, (2, 2))
 
-    ret, thresh = cv2.threshold(blurred, 0, 255, cv2.THRESH_BINARY)
+    _, thresh = cv2.threshold(blurred_image, 0, 255, cv2.THRESH_BINARY)
 
-    contours, hierarchy = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    hand_contours, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
-    contours = max(contours, key=lambda x: cv2.contourArea(x))
+    hand_contours = max(hand_contours, key=lambda value: cv2.contourArea(value))
 
-    hull = cv2.convexHull(contours, returnPoints=False)
+    hull = cv2.convexHull(hand_contours, returnPoints=False)
 
-    defects = cv2.convexityDefects(contours, hull)
+    defects = cv2.convexityDefects(hand_contours, hull)
 
     fingers_count = 0
     if defects is not None:
         for i in range(defects.shape[0]):
             start_index, end_index, far_index, _ = defects[i][0]
-            start = tuple(contours[start_index][0])
-            end = tuple(contours[end_index][0])
-            far = tuple(contours[far_index][0])
+            start = tuple(hand_contours[start_index][0])
+            end = tuple(hand_contours[end_index][0])
+            far = tuple(hand_contours[far_index][0])
             a = np.sqrt((end[0] - start[0]) ** 2 + (end[1] - start[1]) ** 2)
             b = np.sqrt((far[0] - start[0]) ** 2 + (far[1] - start[1]) ** 2)
             c = np.sqrt((end[0] - far[0]) ** 2 + (end[1] - far[1]) ** 2)
@@ -45,8 +46,11 @@ def extract_features(image):
             if angle <= np.pi / 2:
                 fingers_count += 1
 
+    if(fingers_count > 0):
+        fingers_count += 1
+
     algorithm_answers.append(fingers_count)
-    return cv2.contourArea(contours), cv2.arcLength(contours, True), fingers_count
+    return cv2.contourArea(hand_contours), cv2.arcLength(hand_contours, True), fingers_count
 
 
 def atoi(character):
@@ -107,10 +111,10 @@ print(f'GaussianNB accuracy: {gaussian_nb_classifier.score(X_test, y_test) * 100
 
 
 # sum = 0
-# for i in range(0, 748):
-#     print(f'{algorithm_answers[i]} == {labels[i]}?')
+# for i in range(0, 1360):
+#     # print(f'{algorithm_answers[i]} == {labels[i]}?')
 #     if int(algorithm_answers[i]) == int(labels[i]):
 #         sum += 1
-# print(f'Wynik algorytmu: {sum}/748')
+# print(f'Wynik algorytmu: {sum}/1360')
 
 
