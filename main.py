@@ -1,7 +1,6 @@
 import cv2
 import numpy as np
 import pandas as pd
-import random
 import os
 import re
 from sklearn.metrics import accuracy_score
@@ -10,12 +9,11 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.naive_bayes import GaussianNB
 
-
 #Główna funkcja analizująca każde zdjęcie:
 def extract_features(image):
     image_hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-    lower_hsv = np.array([0, 48, 80], dtype='uint8')
-    upper_hsv = np.array([20, 255, 255], dtype='uint8')
+    lower_hsv = np.array([0, 40, 80], dtype='uint8')
+    upper_hsv = np.array([100, 255, 255], dtype='uint8')
 
     skin_region_hsv = cv2.inRange(image_hsv, lower_hsv, upper_hsv)
 
@@ -41,8 +39,7 @@ def extract_features(image):
             a = np.sqrt((end[0] - start[0]) ** 2 + (end[1] - start[1]) ** 2)
             b = np.sqrt((far[0] - start[0]) ** 2 + (far[1] - start[1]) ** 2)
             c = np.sqrt((end[0] - far[0]) ** 2 + (end[1] - far[1]) ** 2)
-            angle = np.arccos((b ** 2 + c ** 2 - a ** 2) / (2 * b * c))  #Tw. cosinusów
-            # Jeśli kąt <= 90st. to mamy palec
+            angle = np.arccos((b ** 2 + c ** 2 - a ** 2) / (2 * b * c))
             if angle <= np.pi / 2:
                 fingers_count += 1
 
@@ -51,28 +48,25 @@ def extract_features(image):
 
     return cv2.contourArea(hand_contours), cv2.arcLength(hand_contours, True), fingers_count
 
-
 #Dwie funkcje służące do sortowania nazw plików alfabetycznie:
 def atoi(character):
     return int(character) if character.isdigit() else character
 
-
 def classic_sort(text):
     return [atoi(character) for character in re.split(r'(\d+)', text)]
 
-
-#Posortowanie nazw zdjęć z folderu alfabetycznie:
+#Posortowanie nazw zdjec z folderu alfabetycznie:
 filenames = [filename for filename in os.listdir('Images') if filename.endswith('.png')]
 filenames.sort(key=classic_sort)
 
-#Analiza wszystkich zdjęć przez algorytm:
+#Analiza wszystkich zdjec przez algorytm:
+print('Analizuje wszystkie zdjęcia...')
 extracted_features = []
 for filename in filenames:
     if filename.endswith('.png'):
         image = cv2.imread(f'Images\\{filename}')
         if image is None:
             print(f'Failed opening image {filename}')
-        print(f'Analyzing {filename}')
         features_from_single_image = extract_features(image)
         extracted_features.append(features_from_single_image)
 
@@ -82,15 +76,10 @@ with open('labels.txt', 'r', encoding='UTF-8') as file:
     for line in file:
         labels.append(line.strip())
 
-# i = 1
-# for feature in extracted_features:
-#     print(f'{i}. {feature}  {labels[i - 1]}')
-#     i+=1
 
-
-#Przygotowanie danych dla klasyfikatorów:
+#Przygotowanie danych dla klasyfikatorow:
 #"Konwersja" na data frame:
-extracted_features_data_frame = pd.DataFrame(extracted_features, columns=['Feature1', 'Feature2', 'Feature3'])
+extracted_features_data_frame = pd.DataFrame(extracted_features, columns=['hand_contour_area', 'hand_outline_length', 'number_of_detected_fingers'])
 
 #Normalizacja:
 scaler = MinMaxScaler()
@@ -102,21 +91,12 @@ X_train, X_test, y_train, y_test = train_test_split(normalized_extracted_feature
 
 #Użycie klasyfikatorów (porównanie):
 print('\n------------------------\nWyniki klasyfikatorów\n------------------------')
+
 #KNN (dla trzech sąsiadów):
 knn_classifier = KNeighborsClassifier(3)
 knn_classifier.fit(X_train, y_train)
 print(f'KNN accuracy: {knn_classifier.score(X_test, y_test) * 100}%')
-
 #GaussianNB:
 gaussian_nb_classifier = GaussianNB()
 gaussian_nb_classifier.fit(X_train, y_train)
 print(f'GaussianNB accuracy: {gaussian_nb_classifier.score(X_test, y_test) * 100}%')
-
-
-#Do testu jakosci alogorytmu (tak na szybko):
-# sum = 0
-# for i in range(0, 1522):
-#     # print(f'{algorithm_answers[i]} == {labels[i]}?')
-#     if int(algorithm_answers[i]) == int(labels[i]):
-#         sum += 1
-# print(f'Algorithm score: {sum}/1522')
